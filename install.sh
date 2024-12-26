@@ -75,11 +75,16 @@ case "$1" in
         build_binary
         install_binary
         ;;
+    "")  # No arguments provided
+        build_binary
+        install_binary
+        ;;
     *)
         echo "Usage: $0 [--build|--install|--build-and-install]"
         echo "  --build              : Build the binary only"
         echo "  --install            : Install the pre-built binary"
         echo "  --build-and-install  : Build and install the binary"
+        echo "  (no flags)           : Same as --build-and-install"
         exit 1
         ;;
 esac
