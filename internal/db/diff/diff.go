@@ -30,7 +30,7 @@ import (
 
 type DiffFunc func(context.Context, string, string, []string) (string, error)
 
-func Run(ctx context.Context, schema []string, file string, config pgconn.Config, differ DiffFunc, fsys afero.Fs, options ...func(*pgx.ConnConfig)) (err error) {
+func Run(ctx context.Context, schema []string, file string, config pgconn.Config, differ DiffFunc, fsys afero.Fs, reverse bool, options ...func(*pgx.ConnConfig)) (err error) {
 	// Sanity checks.
 	if err := utils.LoadConfigFS(fsys); err != nil {
 		return err
@@ -56,7 +56,7 @@ func Run(ctx context.Context, schema []string, file string, config pgconn.Config
 		}
 	}
 	// 3. Run migra to diff schema
-	out, err := DiffDatabase(ctx, schema, config, os.Stderr, fsys, differ, options...)
+	out, err := DiffDatabase(ctx, schema, config, os.Stderr, fsys, differ, reverse, options...)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func migrateBaseDatabase(ctx context.Context, container string, fsys afero.Fs, o
 	return migration.SeedGlobals(ctx, migrations, conn, afero.NewIOFS(fsys))
 }
 
-func DiffDatabase(ctx context.Context, schema []string, config pgconn.Config, w io.Writer, fsys afero.Fs, differ func(context.Context, string, string, []string) (string, error), options ...func(*pgx.ConnConfig)) (string, error) {
+func DiffDatabase(ctx context.Context, schema []string, config pgconn.Config, w io.Writer, fsys afero.Fs, differ func(context.Context, string, string, []string) (string, error), reverse bool, options ...func(*pgx.ConnConfig)) (string, error) {
 	fmt.Fprintln(w, "Creating shadow database...")
 	shadow, err := CreateShadowDatabase(ctx, utils.Config.Db.ShadowPort)
 	if err != nil {
@@ -203,13 +203,24 @@ func DiffDatabase(ctx context.Context, schema []string, config pgconn.Config, w 
 		return "", err
 	}
 	fmt.Fprintln(w, "Diffing schemas:", strings.Join(schema, ","))
-	source := utils.ToPostgresURL(pgconn.Config{
+	shadowURL := utils.ToPostgresURL(pgconn.Config{
 		Host:     utils.Config.Db.ShadowHost,
 		Port:     utils.Config.Db.ShadowPort,
 		User:     "postgres",
 		Password: utils.Config.Db.Password,
 		Database: "postgres",
 	})
-	target := utils.ToPostgresURL(config)
+	targetURL := utils.ToPostgresURL(config)
+
+	// Swap source and target based on direction
+	var source, target string
+	if reverse {
+		source = targetURL
+		target = shadowURL
+	} else {
+		source = shadowURL
+		target = targetURL
+	}
+
 	return differ(ctx, source, target, schema)
 }

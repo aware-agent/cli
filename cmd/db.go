@@ -90,6 +90,7 @@ var (
 	usePgSchema bool
 	schema      []string
 	file        string
+	reverse     bool
 
 	dbDiffCmd = &cobra.Command{
 		Use:   "diff",
@@ -103,7 +104,7 @@ var (
 				differ = diff.DiffPgSchema
 				fmt.Fprintln(os.Stderr, utils.Yellow("WARNING:"), "--use-pg-schema flag is experimental and may not include all entities, such as RLS policies, enums, and grants.")
 			}
-			return diff.Run(cmd.Context(), schema, file, flags.DbConfig, differ, afero.NewOsFs())
+			return diff.Run(cmd.Context(), schema, file, flags.DbConfig, differ, afero.NewOsFs(), reverse)
 		},
 	}
 
@@ -256,6 +257,7 @@ func init() {
 	dbDiffCmd.MarkFlagsMutuallyExclusive("db-url", "linked", "local")
 	diffFlags.StringVarP(&file, "file", "f", "", "Saves schema diff to a new migration file.")
 	diffFlags.StringSliceVarP(&schema, "schema", "s", []string{}, "Comma separated list of schema to include.")
+	diffFlags.BoolVar(&reverse, "reverse", false, "Reverse the diff direction to show changes needed in target to match source")
 	dbCmd.AddCommand(dbDiffCmd)
 	// Build dump command
 	dumpFlags := dbDumpCmd.Flags()
