@@ -63,6 +63,34 @@ install_go() {
     fi
 }
 
+# Function to create deb package
+create_deb_package() {
+    local PACKAGE_DIR="supabase-cli"
+    
+    # Create package directory structure
+    mkdir -p "${PACKAGE_DIR}/usr/local/bin"
+    cp ./supabase "${PACKAGE_DIR}/usr/local/bin/"
+    chmod +x "${PACKAGE_DIR}/usr/local/bin/supabase"
+    
+    # Create DEBIAN control directory and file
+    mkdir -p "${PACKAGE_DIR}/DEBIAN"
+    cat > "${PACKAGE_DIR}/DEBIAN/control" << EOF
+Package: supabase-cli
+Version: ${VERSION}
+Architecture: amd64
+Maintainer: Supabase
+Description: Supabase CLI tool
+EOF
+
+    # Build the package
+    dpkg-deb --build "${PACKAGE_DIR}"
+    
+    # Cleanup
+    rm -rf "${PACKAGE_DIR}"
+    
+    echo "Created package: ${PACKAGE_DIR}.deb"
+}
+
 # Parse command line arguments
 case "$1" in
     --build)
@@ -75,15 +103,20 @@ case "$1" in
         build_binary
         install_binary
         ;;
+    --deb)
+        build_binary
+        create_deb_package
+        ;;
     "")  # No arguments provided
         build_binary
         install_binary
         ;;
     *)
-        echo "Usage: $0 [--build|--install|--build-and-install]"
+        echo "Usage: $0 [--build|--install|--build-and-install|--deb]"
         echo "  --build              : Build the binary only"
         echo "  --install            : Install the pre-built binary"
         echo "  --build-and-install  : Build and install the binary"
+        echo "  --deb                : Create a .deb package"
         echo "  (no flags)           : Same as --build-and-install"
         exit 1
         ;;
